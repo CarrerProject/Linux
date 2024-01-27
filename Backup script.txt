@@ -1,0 +1,57 @@
+#!/bin/bash
+
+user_home="/home/mohammadkhattab"
+backup_destination="$user_home/backup"
+compression="${1:-tar.gz}"
+log_file="$user_home/log_file"
+
+
+if [ ! -d "$backup_destination" ]; then
+    mkdir -p "$backup_destination"
+    chmod 700 "$backup_destination"
+fi
+
+log_error() {
+    echo "Error: $1" >> "$log_file"
+}
+
+echo "Backup started at $(date '+%Y-%m-%d %H:%M:%S')" >> "$log_file"
+
+num_backups_to_keep=5
+backup_directories=("$user_home/directory1" "$user_home/directory2")
+
+for dir in "${backup_directories[@]}"; do
+    backup_filename="$(basename "$dir")_$(date '+%Y%m%d_%H%M%S').$compression"
+    backup_path="$backup_destination/$backup_filename"
+
+    if [ ! -d "$dir" ]; then
+        log_error "Directory $dir not found. Skipping backup."
+        continue
+    fi
+
+     tar -czf "$backup_path" -C "$(dirname "$dir")" "$(basename "$dir")" 2>> "$log_file" || log_error "Backup failed for $dir"
+     tar -cz -C "$(dirname "$dir")" "$(basename "$dir")" | gpg -c > "$backup_path.gpg" 2>> "$log_file" || log_error "GPG encryption failed for $dir"
+done
+
+
+if ! files_to_remove=$(find "$backup_destination" -type f -name "*.$compression" | sort -r | tail -n +$((num_backups_to_keep + 1))); then
+    log_error "Error finding files to remove."
+else
+    if [ -n "$files_to_remove" ]; then
+        echo "Removing old backups..."
+        echo "$files_to_remove" | xargs -r rm
+    fi
+fi
+
+echo "Backup Sizes:"
+du_output=$(du -h "$backup_destination"/* 2>> "$log_file")
+if [ $? -eq 0 ]; then
+    echo "$du_output"
+else
+    log_error "Error getting backup sizes."
+fi
+
+echo "Backup completed at $(date '+%Y-%m-%d %H:%M:%S')" >> "$log_file"
+
+echo "Backup Status:"
+cat "$log_file"

@@ -1,0 +1,22 @@
+#!/bin/bash
+
+
+log_file="/home/mohammadkhattab/system_health_check.log"
+
+echo "System health check started at $(date '+%Y-%m-%d %H:%M:%S')" >> "$log_file"
+
+echo "Disk Space Usage:" >> "$log_file"
+df -h >> "$log_file"
+
+echo -e "\nMemory Usage:" >> "$log_file"
+free -m >> "$log_file"
+
+echo -e "\nRunning Services:" >> "$log_file"
+systemctl list-units --type=service --state=running >> "$log_file"
+
+echo -e "\nRecent System Updates:" >> "$log_file"
+cat /var/log/apt/history.log | grep -E 'Start-Date|End-Date|Commandline|Install' | grep '/home/mohamamdkhattab'
+
+echo "System health check completed at $(date '+%Y-%m-%d %H:%M:%S')" >> "$log_file"
+
+cat "$log_file"
